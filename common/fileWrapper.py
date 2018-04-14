@@ -1,7 +1,11 @@
+import copy
+
 class EU4ConfigComposite(object):
     blank_chars = [' ', '\t', '\n']
 
-    def __init__(self, key, material, depth):
+    # Default initializer for new configuration files,
+    # and the initializer with arguments for reading configurations from file
+    def __init__(self, key=None, material='', depth=-1):
         self.key = key
         self.raw = material
         self.depth = depth
@@ -41,7 +45,7 @@ class EU4ConfigComposite(object):
                 
             if char == '{':
                 brace_count += 1
-                if brace_count == 1: # the outermost brace should not be included in the material of the inner scope
+                if brace_count == 1: # the outermost braces should not be included in the material of the inner scope
                     is_child_key_found = False
                     continue
                     
@@ -59,8 +63,8 @@ class EU4ConfigComposite(object):
 
     @staticmethod
     def readFromFile(path):
-        with open(path) as file:
-            return EU4ConfigComposite(None, file.read(), -1)
+        with open(path) as infile:
+            return EU4ConfigComposite(None, infile.read(), -1)
 
     def __getitem__(self, key):
         for child in self.children:
@@ -76,6 +80,35 @@ class EU4ConfigComposite(object):
     
     __str__ = __repr__
 
+    def appendScope(self, arg):
+        if isinstance(arg, EU4ConfigScope):
+            scope = copy.deepcopy(arg)
+            scope.depth = self.depth + 1
+        else:
+            scope = EU4ConfigScope(arg, '', self.depth + 1)
+        self.children.append(scope)
+
+    def appendExpression(self, arg):
+        if isinstance(arg, EU4ConfigExpression):
+            expression = copy.deepcopy(arg)
+            expression.depth = self.depth + 1
+        else:
+            key, value = arg
+            expression = EU4ConfigExpression(key, value, self.depth + 1)
+        self.children.append(expression)
+    
+    def appendList(self, key, lst):
+        scope = EU4ConfigScope(key, ' '.join(lst), self.depth + 1)
+        self.children.append(scope)
+
+    def findall(self, key):
+        result = []
+        for child in self.children:
+            if child.key == key:
+                result.append(child)
+        return result
+
+
 class EU4ConfigExpression(EU4ConfigComposite):
     def __init__(self, key, value, depth):
         self.key = key
@@ -89,7 +122,7 @@ class EU4ConfigExpression(EU4ConfigComposite):
 
 
 class EU4ConfigScope(EU4ConfigComposite):
-    def __init__(self, key, material, depth):
+    def __init__(self, key, material='', depth=0):
         super().__init__(key, material, depth)
 
         self.is_list = False
