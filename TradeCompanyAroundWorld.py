@@ -23,6 +23,15 @@ from common.fileWrapper import EU4ConfigScope as Scope
 from common.fileWrapper import EU4ConfigExpression as Expression
 
 tradeNodeConfig = Config.readFromFile(tradeNodeFilePath)
+colonialRegionConfig = Config.readFromFile(colonialRegionFilePath)
+
+colonialProvinces = set()
+if not args.icr:
+	for region in colonialRegionConfig.children:
+		if region['provinces'] is not None:
+			for province in region['provinces'].children:
+				colonialProvinces.add(province)
+
 
 tradeCompanyConfigs = Config()
 
@@ -39,6 +48,10 @@ for node in tradeNodeConfig.children:
 
 	provinces = node['members']
 	provinces.key = 'provinces'
+	provinces.children = list(set(provinces.children) - colonialProvinces)
+	if len(provinces.children) < 10:
+		# print("Removed colonial-region trade company {} whose provinces number is {}".format(nodeName, len(provinces.children)))
+		continue
 	tradeCompanyConfig.appendScope(provinces)
 	
 	tradeCompanyNames = Scope('names')

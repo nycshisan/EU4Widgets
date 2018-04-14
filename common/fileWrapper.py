@@ -83,7 +83,7 @@ class EU4ConfigComposite(object):
     def appendScope(self, arg):
         if isinstance(arg, EU4ConfigScope):
             scope = copy.deepcopy(arg)
-            scope.depth = self.depth + 1
+            scope.updateDepth(self.depth + 1)
         else:
             scope = EU4ConfigScope(arg, '', self.depth + 1)
         self.children.append(scope)
@@ -91,7 +91,7 @@ class EU4ConfigComposite(object):
     def appendExpression(self, arg):
         if isinstance(arg, EU4ConfigExpression):
             expression = copy.deepcopy(arg)
-            expression.depth = self.depth + 1
+            expression.updateDepth(self.depth + 1)
         else:
             key, value = arg
             expression = EU4ConfigExpression(key, value, self.depth + 1)
@@ -108,11 +108,18 @@ class EU4ConfigComposite(object):
                 result.append(child)
         return result
 
+    def updateDepth(self, depth):
+        self.depth = depth
+        for child in self.children:
+            if isinstance(child, EU4ConfigComposite):
+                child.updateDepth(depth + 1)
+
 
 class EU4ConfigExpression(EU4ConfigComposite):
     def __init__(self, key, value, depth):
         self.key = key
         self.value = value
+        self.children = []
         self.depth = depth
 
     def __repr__(self):
@@ -127,7 +134,7 @@ class EU4ConfigScope(EU4ConfigComposite):
 
         self.is_list = False
         
-        if not self.children:
+        if material and not self.children:
             self.is_list = True
             self.children = material.strip().split()
 
