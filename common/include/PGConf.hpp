@@ -36,6 +36,7 @@ namespace PGConf {
 	public:
 		virtual void read(std::istream &is) = 0;
 		virtual void write(std::ostream &os) = 0;
+		virtual string getKey() = 0;
 	};
 
 	// tokens is a single string
@@ -50,7 +51,7 @@ namespace PGConf {
 					seekToLineEnd(is); // skip comments
 					return;
 				}
-				if (c == ' ' || c == '\n') {
+				if (c == ' ' || c == '\t' || c == '\n') {
 					return;
 				}
 				if (c == '\r') {
@@ -75,6 +76,12 @@ namespace PGConf {
 		}
 
 		bool isEmpty() { return _buf.empty(); }
+
+		bool isEqualTo(const string &s) {
+			return s == string(_buf.begin(), _buf.end());
+		}
+
+		string getKey() override { return string(_buf.begin(), _buf.end()); }
 	};
 
 
@@ -97,17 +104,20 @@ namespace PGConf {
 			os.write(" = ", 3);
 			_v->write(os);
 		}
+
+		string getKey() override { return _k->getKey(); }
 	};
 
 
 	// scopes
 	class Scope : public Conf {
 		shared_ptr<Token> _k;
-		vector<shared_ptr<Conf>> _sub;
 
 		int _depth;
 
 	public:
+		vector<shared_ptr<Conf>> children;
+
 		Scope(const shared_ptr<Token> &key, int depth) {
 			_k = key;
 			_depth = depth;
@@ -135,17 +145,17 @@ namespace PGConf {
 						// scopes
 						auto scope = std::make_shared<Scope>(keyToken, _depth + 1);
 						scope->read(is);
-						_sub.emplace_back(scope);
+						children.emplace_back(scope);
 					} else {
 						// k-v pairs
 						auto pair = std::make_shared<KVPair>(keyToken);
 						pair->read(is);
-						_sub.emplace_back(pair);
+						children.emplace_back(pair);
 					}
 				} else {
 					// single token values
 					is.unget();
-					_sub.emplace_back(keyToken);
+					children.emplace_back(keyToken);
 					continue;
 				}
 			}
@@ -154,7 +164,7 @@ namespace PGConf {
 		void write(std::ostream &os) override {
 			_k->write(os);
 			os.write(" = {\n", 5);
-			for (const auto &sub : _sub) {
+			for (const auto &sub : children) {
 				for (int i = 0; i < _depth; ++i) {
 					os.put('\t');
 				}
@@ -166,6 +176,10 @@ namespace PGConf {
 			}
 			os.write("}", 1);
 		}
+
+		void clear() { children.clear(); }
+
+		string getKey() override { return _k->getKey(); }
 
 	};
 
@@ -232,6 +246,8 @@ namespace PGConf {
 				return false;
 			}
 		}
+
+		string getKey() override { return ""; }
 	};
 
 }
